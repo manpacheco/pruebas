@@ -1,0 +1,15 @@
+; -----------------------------------------------------------------------------
+; Nombre de la función: 
+; Descripción: 
+; Registros de entrada: 
+; Registros de salida: 
+; Registros sobreescritos: 
+; Funciones requeridas: 
+; Funciones relacionadas:
+; Fuente original :
+; -----------------------------------------------------------------------------
+
+NombreFuncion:
+
+; Código de la función aquí
+ret
