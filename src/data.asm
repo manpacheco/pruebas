@@ -1,1 +1,1 @@
-Mensaje: db "Hello mun_dofff",33,255
+Mensaje: db "Hello mun_dofff",33,0
