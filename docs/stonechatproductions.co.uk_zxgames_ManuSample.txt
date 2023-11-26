@@ -1,0 +1,1907 @@
+;difference to 14: added UG facility, not yet shown in spreadsheet
+maxpage:	equ	(endpagetab-pagetab)/2
+ATTRpos:	equ	22528+33+33
+DFpos:		equ	16384+33
+tilepos:		equ	16384+20+32+33
+AYinitiate:	equ	donowt
+	;
+org 24064
+Manu_start_here:
+	ld ix,manustring
+	call printstring
+	ret
+	;
+manustring:
+	db	254,0	;254 sets print type, 0 is 64 print (see printroutinetab)
+	db	249,56	;sets text colour
+	db	253,0,0	;253 is 'print at' (See control code tab), followed by x,y
+	db	'Hi Manu, your text goes here'
+	db	252	;means start a new row
+	db	254,1,'HELLO WORLD',252
+	db	254,2,'HELLO WORLD',252
+	db	254,3,'HELLO WORLD',252,252
+	db	254,4,'HELLO WORLD',252,252
+	db	253,0,10
+	db	254,5,'HELLO WORLD',252	
+	db	255	;255 is end of string
+	;
+	call waitkey
+	ld a,244
+	ld (23739),a
+	ld hl,(23672)
+	ld (rpok+1),hl
+	ld a,(23560)
+	ld (rpok+4),a
+	;xor a
+	;ld (pageno),a
+bookloop:
+	xor a
+	ld (pagebyte),a
+	ld ix,cstr
+	call printstring
+	call nokey
+	ld a,(pageno)
+	call getpage
+	call printstring
+	ld a,(pagebyte)
+	or a
+	call z,pagekey
+	call nextpage
+	jr bookloop
+	ret
+	;
+cstr:	db	248,120,120,120,120,249,120,251,1,255
+	;
+nextpage:	;arrive with bit 0 or 1 set, bit 0 = page up, bit 1 = page down
+	rra
+	jr nc,pagedown
+pageup:	ld a,(pageno)
+	inc a
+	cp maxpage
+	ret nc
+	ld (pageno),a
+	ret
+	;
+pagedown:
+	ld a,(pageno)
+	or a
+	ret z
+	dec a
+	ld (pageno),a
+	ret
+	;
+pagekey:
+	ld a,15
+	in a,(254)
+	cpl
+	and 3
+	jr z,pagekey
+	ret
+	;
+pagebyte:	db	0
+	;
+getpage:
+	add a,a
+	ld h,0
+	ld l,a
+	ld bc,pagetab
+	add hl,bc
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	push bc
+	pop ix
+	ret
+	
+	;
+pageno:	db	0
+	;
+pagetab:
+dw	Intro0
+dw	graphstats
+dw	end0
+endpagetab:
+	;
+end0:
+	db	244,1
+	db	242
+	db	254,5
+	db	253,8,8,'FIN'
+	db	255
+	;
+Intro0:
+	db	244,1
+	db	242
+	;db	248,120,120,120,120
+	db	253,6,3,254,4
+	db	'WOOT 2021'
+	db	254,0
+	db	253,1,8,254,0	;half print
+	db	'Wibble!',252,252
+	db	'ENJOY THE MAG! KEYS O/P to PAGE LEFT & RIGHT. '
+	db	240,1,1,8,6,80
+	db	240,1,8,7,6,112
+	db	240,1,15,8,6,96
+	db	240,1,23,7,6,104
+	db	255
+	;
+
+	;
+graphstats:
+	db	242
+	db	244,7
+	db	254,0	;tall print
+	db	253,3,16,'1994', 253,9,16,'2000',253,14,16,'2005',253,19,16,'2010',253,24,16,'2015',253,29,16,'2021'
+	db	253,1,12,' 50',253,1,9,'100',253,1,6,'150',253,1,3,'200'
+	db	254,3
+	db	226
+	db	255	
+	;
+gamegraphs:
+	ld (ixstore),ix
+graphlp:
+	call colourgraph
+	call cleargraph
+	ld ix,estring0
+	call printstring
+	call drawscale
+	call lilbeep
+	call dographs
+	call nokey
+	call graphkeys
+	ld a,(pagebyte)
+	or a
+	jr z,graphlp
+	ld ix,(ixstore)
+	ret
+	;
+colourgraph:
+	ld hl,22528+32+3
+	ld de,32-27
+	ld c,15
+colglp0:
+	ld b,27
+colglp:	ld (hl),121
+	inc l
+	djnz colglp
+	add hl,de
+	dec c
+	jr nz,colglp0
+	ret
+	;
+cleargraph:
+	ld de,16384+256+3
+	ld c,128
+cglp0:	push de
+	ld b,26
+	xor a
+cglp:	ld (de),a
+	inc e
+	djnz cglp
+	pop de
+	call  nextlinedown
+	dec c
+	jr nz,cglp0
+	ret
+	;
+graphpos:	db	24,127
+	;
+drawscale:
+	ld bc,(graphpos)
+	ld a,c
+	sub 8
+	ld c,a
+	call yx2pix
+	ex de,hl
+	ld c,4
+dslp0:	ld b,25
+dslp:	call nexthlup
+	djnz dslp
+	ld a,(hl)
+	or 7
+	ld (hl),a
+	dec c
+	jr nz,dslp0
+	ret
+	;
+dographs:
+	call getgraph
+	ld bc,(graphpos)
+	call yx2pix
+	ex de,hl
+	ld b,2021-1994
+pblp0:	push bc
+	push hl
+	ld a,(ix+0)
+	inc ix
+	or a
+	jr z,pbm1
+	srl a
+	jr nz,pbm	
+	inc a
+pbm:	ld b,a
+barlp:	ld (hl),126
+	call nexthlup
+	djnz barlp
+pbm1:	pop hl
+	inc l
+	pop bc
+	djnz pblp0
+	ret
+	;
+getgraph:	
+	ld ix,tsstr
+	call printstring
+	ld a,(graphno)
+	add a,a
+	ld e,a
+	ld d,0
+	ld hl,graphtab
+	add hl,de
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	push de
+	pop ix
+	call printstring
+	ret
+	;
+graphno:	db	0
+	;
+graphtab:
+	dw	allgames
+endgraphtab:
+	;
+maxgraph:	equ	(endgraphtab-graphtab)/2
+	;
+estring0:	db	253,1,18
+emptystring:	db	'                             ',255
+	;
+tsstr:	db	253,2,18,255
+	;
+allgames:
+	db	250,'ALL GAMES ',255
+	db	175,217,225,162,141,102,59,46,73,77,92,96,81,78,76,78,104,112,128,124,196,116,119,212,194,240,180
+	;
+shortcrash:
+	ld bc,60
+	jr crummy
+	;
+crashdrummy:
+	ld bc,125
+crummy:	ld a,(bordercolour)
+	ld (bpok+1),a
+crdrum:	ld de,20
+	ld hl,16383
+blp0:	ld a,(hl)
+	dec hl
+	and 24
+bpok:	or 0
+	out (254),a
+	push de
+blp1:	dec de
+	ld a,d
+	or e
+	jr nz,blp1
+	pop de
+	ld a,e
+	add a,10
+	ld e,a
+	jr nc,miss
+	inc d
+miss:	dec bc
+	ld a,b
+	or c
+	jr nz,blp0
+	ret
+	;
+playsound:
+	ld l,(ix+0)
+	inc ix
+	ld h,0
+	add hl,hl
+	ld bc,soundtab
+	add hl,bc
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	ex de,hl
+	jp (hl)
+	;
+soundtab:
+	dw	pageturnnoise
+	dw	lilbeep
+	dw	crashdrummy
+	dw	keytap
+	dw	zap
+	dw	shortcrash
+	;
+zap:	ld hl,bordercolour
+	ld bc,1000
+	ld d,255
+	ld e,24
+zlp0:	ld a,e
+	and 24
+	or (hl)
+	out (254),a
+	cpl
+	ld e,a
+	ld a,d
+zlp:	dec a
+	jr nz,zlp
+	dec d
+	jr nz,zlp0
+	ret
+	;
+romcrackle:
+	ld hl,bordercolour
+	ld de,0
+rclp:	ld a,(de)
+	and 24
+	or (hl)
+	out (254),a
+	inc de
+	bit 6,d
+	jr z,rclp
+	ret
+	;
+lilbeep:
+	ld b,0
+lb2:	ld hl,bordercolour
+lblp:	ld a,r
+	and 24
+	or (hl)
+	out (254),a
+	djnz lblp
+	ret
+	;
+pitchbeep:
+	ld e,0
+ybeep:	ld b,0
+	ld d,24
+	ld hl,bordercolour	
+ptblp:	ld a,d
+	and 24
+	or (hl)
+	out (254),a
+	cpl
+	ld d,a
+	ld a,e
+plp:	dec e
+	db	0,0,0,0
+	jr nz,plp
+	ld e,a
+	djnz ptblp
+	ret
+	;
+biggerbeep:
+	ld bc,500
+	ld hl,bordercolour
+bblp:	ld a,c
+	or b
+	and 24
+	or (hl)
+	out (254),a
+	dec bc
+	ld a,b
+	or c
+	jr nz,bblp
+	ret
+	;
+keytap:
+	ld hl,bordercolour
+	ld bc,2000
+	ld d,0
+ktlp:	ld a,b
+	or c
+	and 24
+	or (hl)
+	out (254),a
+	dec bc
+	ld a,b
+	or c
+	jr nz,ktlp
+	ret
+	;
+;PATRIK RAK's XOR SHIFT RND generator
+rnd:
+	push hl
+	push de
+rpok:	ld  hl,0xA280   ; yw -> zt
+	ld  de,0xC0DE   ; xz -> yw
+	ld  (rnd+6),hl  ; x = y, z = w
+	ld  a,l         ; w = w ^ ( w << 3 )
+	add a,a
+	add a,a
+	add a,a
+	xor l
+	ld  l,a
+	ld  a,d         ; t = x ^ (x << 1)
+	add a,a
+	xor d
+	ld  h,a
+	rra             ; t = t ^ (t >> 1) ^ w
+	xor h
+	xor l
+	ld  h,e         ; y = z
+	ld  l,a         ; w = t
+	ld  (rnd+3),hl
+	pop de
+	pop hl
+	ret
+	;
+	;
+controltype:	db	0	;bit 0=Keys, 1=Slideshow
+	;
+gameorder:	db	0	;0=age, 1=score, 3=random
+	;
+gamegraphics:	;show the tile/etc of the game
+	call tile2attr
+	call gettile
+	ld de,tilepos
+	call dotile	;draw and colour tile
+	ret
+	;
+setborder:
+	ld (bordercolour),a
+	out (254),a
+	ret
+	;
+bordercolour:	db	6
+	;
+tile2attr:	;turn a pixel tile into a big ATTR pic
+	call gettile
+	push hl		;HL at pixels
+	pop ix
+	ld de,32
+	add ix,de	;IX addressing colours now
+	ld (tpos+1),hl	;save for later
+	ld hl,ATTRpos-33
+	ld a,(ix+0)
+	call colourbigsquare
+	ld hl,ATTRpos+18-32
+	ld a,(ix+0)
+	call coloursmallsquare
+	ld hl,ATTRpos+8
+	ld a,(ix+1)
+	call coloursquare
+	ld hl,ATTRpos+256
+	ld a,(ix+2)
+	call coloursquare
+	ld hl,ATTRpos+256+8
+	ld a,(ix+3)
+	call coloursquare
+tpos:	ld hl,0	;tile address gets poked in here
+	call drawblocks
+	ret
+	;
+delaykeys:
+	ld b,0
+dklp:	halt
+	ld a,223
+	in a,(254)
+	cpl
+	and 3
+	jr nz,dkout
+	djnz dklp
+	ld a,1
+dkout:	ld (pagebyte),a
+	ret
+	;
+delay:	ld b,(ix+0)
+	inc ix
+delp:	halt
+	djnz delp
+	ret
+	;
+mirrorbyte:
+	ld c,1
+mblp:	rra
+	rl c
+	jr nc,mblp
+	ld a,c
+	ret
+	;
+drawblocks:	;set a char block for ever bit
+	ld de,DFpos+33	;HL at tile pixels, DE at screen
+	ld b,16		;# rows
+dblp00:	push bc
+	ld c,(hl)	;get byte
+	inc hl
+	ld b,8		;8 bits in the byte
+dblp:	rl c
+	push de
+	call c,doblock
+	pop de
+	inc e		;next char along
+	djnz dblp
+	ld c,(hl)	;get byte
+	inc hl
+	ld b,8		;8 bits in the byte
+dblp1:	rl c
+	push de
+	call c,doblock
+	pop de
+	inc e		;next char along
+	djnz dblp1	
+	ld a,e
+	and 224
+	or 2
+	ld e,a
+	call nextrowdown
+	pop bc
+	djnz dblp00
+	ret	
+
+doblock:	;if carry set draw a block, not set don't
+	ld a,255
+rept	7
+	ld (de),a
+	inc d
+endrep
+	ld (de),a
+	ret
+	;
+coloursquare:
+	ld c,8
+alp0:	ld b,8
+alp:	ld (hl),a
+	inc l
+	djnz alp
+	ld de,32-8
+	add hl,de
+	dec c
+	jr nz,alp0
+	ret
+	;
+colourbigsquare:	;big border square, and small one to border tile
+	ld c,18
+ablp0:	ld b,18
+ablp:	ld (hl),a
+	inc l
+	djnz ablp
+	ld de,32-18
+	add hl,de
+	dec c
+	jr nz,ablp0
+	ret
+	;
+coloursmallsquare:
+	ld c,4
+aslp0:	ld b,4
+aslp:	ld (hl),a
+	inc l
+	djnz aslp
+	ld de,32-4
+	add hl,de
+	dec c
+	jr nz,aslp0
+	ret
+	;
+tileprinter:	;used by ix in string
+	ld e,(ix+0)
+	inc ix
+	ld d,(ix+0)
+	inc ix
+	call yx2cell
+	ld a,(ix+0)
+	inc ix
+	call gettile
+	jp dotile
+	;
+getanddotile:
+	call gettile	;arrive A holding tile
+dotile:
+	push de
+	call drawtile
+	pop de
+	call screen2att
+	ex de,hl
+	call colourtile
+	ret
+	;
+deletetile:	;de at screen
+	ld b,16
+deltlp:	xor a
+	ld (de),a
+	inc e
+	ld (de),a
+	dec e
+	call nextlinedown
+	djnz deltlp
+	ret
+	;
+drawtile:	;HL at graphic, DE at screen
+	ld b,16
+dtlp:	ld a,(hl)
+	ld (de),a
+	inc hl
+	inc e
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	dec e
+	call nextlinedown
+	djnz dtlp
+	ret
+	;
+colourtile:	;HL at screen ATT, DE at colours
+	ld bc,31
+	ld a,(de)
+	ld (hl),a
+	inc de
+	inc l
+	ld a,(de)
+	ld (hl),a
+	inc de
+	add hl,bc
+	ld a,(de)
+	ld (hl),a
+	inc de
+	inc l
+	ld a,(de)
+	ld (hl),a
+	ret
+	;
+gettile:
+	ld h,0
+	ld l,a
+	add hl,hl
+	add hl,hl
+	push hl
+	pop bc
+	add hl,hl
+	add hl,hl
+	add hl,hl	;x32
+	add hl,bc	;x36
+	ld bc,tiles
+	add hl,bc	;HL now pointing at correct graphic
+	ret
+	;
+topchar:	equ	128
+	;
+printstring:
+	ld a,(ix+0)
+	inc ix
+	cp 255			;end string = 255
+	ret z
+	cp topchar
+	push af
+	call nc,controlcode
+	pop af
+	jr nc,printstring
+	ld (charnum),a		;store ASCII to print
+	call printit
+	jr printstring
+	;
+getchar:			;arrive A holding ASCII, point HL at graphic
+	ld bc,(fontseed)
+	cp 127
+	jr nz,gethchar
+	xor a
+	ld bc,extrachars
+gethchar:
+	ld h,0
+	ld l,a
+	add hl,hl
+	add hl,hl
+	add hl,hl		;x8
+	add hl,bc
+	ret
+	;
+charnum:		db	0
+textx:			db	0
+texty:			db	0	
+printroutine:		db	3;0	;0=64,1=normal,2=boldprint,3=tall,4=big,5=vbig,6=giant
+papercolour:		db	120
+fontcolour:		db	120
+tallfontcolour:		db	120,120,120,120	;used by tall, big and very big print routines
+giantfontcolour:	db	80
+charhalf:		db	11110000b	;char mask for print 64
+fontseed:		dw	font-256;15360
+margin:			db	1
+	;
+printit:
+	ld a,(printroutine)
+	add a,a		;byte to word
+	ld b,0
+	ld c,a
+	ld hl,printroutinetab
+	add hl,bc
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a
+	jp (hl)
+	;
+printroutinetab:
+	dw	halfprint
+	dw	normalprint
+	dw	boldprint
+	dw	tallprint
+	dw	bigprint
+	dw	verybigprint
+	dw	giantprint
+	dw	speechbubbleprint	;half print, makes a white box around at afterwards
+	;
+speechbubbleprint:
+	call makebubble
+	call halfprint
+	ret
+	;
+makebubble:
+	ld de,(textx)
+	dec d
+	dec e
+	call yx2cell
+	call screen2att
+	ex de,hl
+	ld de,32-2
+	ld b,3
+	ld a,(speechbubblecolour)
+sblp:	ld (hl),a
+	inc l
+	ld (hl),a
+	inc l
+	ld (hl),a
+	add hl,de
+	djnz sblp	
+	ret	
+	;
+speechbubblecolour:	db	120
+	;
+halfprint:
+	ld a,(charnum)
+	cp ' '
+	scf
+	call z,wordwrap64	;if we're about to start a new word, check it will fit
+	ret nc			;nc means we've moved down a row, and we don't want a space starting a line
+	ld de,(textx)
+	call yx2cell		;point DE at screen
+	ld a,(charnum)
+	cp 96		;no lower case
+	jr c,hpc
+	sub 32
+hpc:	ld bc,halffont-256
+	call gethchar
+halfchar:
+	ld a,(charhalf)
+	ld c,a
+	cpl
+	ld (charhalf),a
+	ld b,8
+	bit 7,c
+	jr z,hpright
+hpleft:				;left hand side of a character cell
+	ld a,(hl)		;which we can clear with LD
+	and c
+	ld (de),a
+	inc hl
+	inc d
+	djnz hpleft
+	dec d
+	call colourchar
+	ret
+	;
+hpright:
+	ex de,hl
+hprlp:	ld a,(de)
+	and c
+	or (hl)
+	ld (hl),a
+	inc de
+	inc h
+	djnz hprlp
+	call nextcell
+	ret
+	;
+normalprint:
+	ld a,(charnum)
+	cp ' '
+	scf
+	call z,wordwrap32	;if we're about to start a new word, check it will fit
+	ret nc			;nc means we've moved down a row, and we don't want a space starting a line
+	ld de,(textx)
+	call yx2cell		;point DE at screen
+	ld a,(charnum)
+	call getchar		;point HL at graphic in normal font
+	call printchar	
+	call colourchar
+	call nextcell
+	ret
+	;
+wordwrap64:
+	ld a,(textx)	;0-31
+	add a,a		;0-62
+	jr z,missprint	;we don't want to print a space at start of line
+	ld e,a
+	ld b,61
+	call wrap	;every letter
+	ret
+	;
+wordwrap32:
+	ld b,32
+	ld de,(textx)		;column in E
+	ld a,e
+	or a			;are we at the start of a row? If so we don't want to start with a space
+	jr z,missprint
+wrap:	push ix
+	pop hl
+	jr wwent
+stillinword:
+	inc e
+	inc hl
+wwent:	ld a,(hl)
+	cp 255
+	jr z,outword
+	cp ' '
+	jr nz,stillinword
+outword:
+	ld a,e
+	cp b		;B =32 or 64
+	ret c
+	ld hl,textx	;we're going to overspill, so move down a row
+	call ncd
+missprint:
+	and a		;unset carry flag
+	ret
+	;
+boldprint:
+	ld a,(charnum)
+	cp ' '
+	scf
+	call z,wordwrap32	;if we're about to start a new word, check it will fit
+	ret nc			;nc means we've moved down a row, and we don't want a space starting a line
+	ld de,(textx)
+	call yx2cell		;point DE at screen
+	ld a,(charnum)
+	call getchar		;point HL at graphic in normal font
+	call printbold
+	call colourchar
+	call nextcell
+	ret
+	;
+tallprint:
+	ld de,(textx)
+	call yx2cell		;point DE at screen
+	ld a,(charnum)
+	call getchar		;point HL at graphic in normal font
+	call printtallchar
+	ld bc,(textx)
+	call yx2attr		;HL at ATTR
+	ld bc,32
+	ld a,(tallfontcolour)
+	ld (hl),a
+	add hl,bc
+	ld a,(tallfontcolour+1)
+	ld (hl),a
+nextcelltall:
+	ld hl,textx
+	inc (hl)		;next column along
+	ld a,(hl)
+	cp 32
+	ret c
+	ld a,(margin)
+	ld (hl),a		;end reached
+	inc hl
+	inc (hl)
+	inc (hl)
+	ld a,(hl)
+	cp 24
+	ret c
+	ld (hl),0
+	ret
+	;
+bigprint:
+	ld de,(textx)
+	call yx2cell
+	ld a,(charnum)
+	call getchar
+	push de
+	call bigchar
+	pop de
+	call bigcolour
+	ld hl,textx
+	inc (hl)
+	inc (hl)
+	ld a,(hl)
+	cp 32
+	ret c
+	ld (hl),0
+	inc hl
+	inc (hl)
+	inc (hl)
+	ld a,(hl)
+	cp 24
+	ret c
+	ld (hl),0
+	ret
+	;
+verybigprint:
+	ld de,(textx)
+	call yx2cell
+	ld a,(charnum)
+	cp ' '
+	ld c,1
+	jr z,smallspace
+	call getchar
+	push de
+	call verybigchar
+	pop de
+	call verybigcolour
+	ld c,4
+smallspace:
+	ld hl,textx
+	ld a,(hl)
+	add a,c
+	ld (hl),a
+	cp 29
+	ret c
+	ld (hl),0
+	inc hl
+	ld a,(hl)
+	add a,c
+	ld (hl),a
+	cp 24
+	ret c
+	ld (hl),0
+	ret
+	;
+giantprint:
+	ret
+	;
+colourchar:			;DE pointing at screen cell
+	call screen2att		;point DE at correct ATTR
+	ld a,(fontcolour)
+	ld (de),a
+	ret
+	;
+tallcolour:
+	call screen2att
+	ex de,hl
+	ld de,32
+	ld a,(tallfontcolour)
+	ld (hl),a
+	add hl,de
+	ld a,(tallfontcolour+1)
+	ld (hl),a
+	ret
+	;
+bigcolour:
+	call tallcolour
+	inc l
+	ld (hl),a
+	and a
+	sbc hl,de
+	ld a,(tallfontcolour)
+	ld (hl),a
+	ret
+	;
+verybigcolour:
+	call screen2att
+	ex de,hl
+	ld de,32
+	ld bc,fontcolour+3
+	ld a,4
+vcclp:	ex af,af'
+	ld a,(bc)
+	push hl
+	ld (hl),a
+	inc l
+	ld (hl),a
+	inc l
+	ld (hl),a
+	inc l
+	ld (hl),a
+	pop hl
+	add hl,de
+	;inc bc
+	ex af,af'
+	dec a
+	jr nz,vcclp
+	ret
+	;
+giantchar:	;hl at graphic, de at screen
+	ret
+	;
+nextcell:			;next cell or row along
+	ld hl,textx
+	inc (hl)		;next column along
+	ld a,(hl)
+	cp 32
+	ret c
+ncd:	ld a,240
+	ld (charhalf),a		;for half print
+	ld a,(margin)
+	ld (hl),a		;end reached
+	inc hl
+	inc (hl)		;one row down
+	ld a,(hl)
+	cp 24			;off bottom yet?
+	ret c
+	ld (hl),0		;back to top
+	ret	
+	;
+printchar:			;HL at graphic, DE at screen
+rept	7
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	inc d
+endrep
+	ld a,(hl)
+	ld (de),a
+	
+	ret
+	;
+printcharanyline:
+	push de
+	ld b,8
+pcalp:	ld a,(hl)
+	ld (de),a
+	inc hl
+	call nextlinedown
+	djnz pcalp
+	pop de
+	ret
+	;
+printbold:
+	ld a,(fontseed+1)	;check if ROM font
+	cp 64
+	jr nc,prbold	;check if 'm' or 'w' as they don't bold well
+	ld a,(charnum)
+	cp 'm'
+	jr z,printm
+	cp 'w'
+	jr z,printw
+prbold:	ld b,8
+pcblp:	ld a,(hl)
+	and a
+	rra
+	or (hl)
+	ld (de),a
+	inc hl
+	inc d
+	djnz pcblp
+	dec d
+	ret
+	;
+printm:	ld hl,bold_m
+	jp printchar
+	;
+printw:	ld hl,bold_w
+	jp printchar
+
+	;
+bold_m:	db 0, 0, 116, 106, 106, 106, 106, 0
+bold_w:	db 0, 0, 106, 106, 106, 106, 116, 0
+	;
+	;
+printtallchar:
+	ld b,8
+ptclp:	ld a,(hl)
+	ld (de),a
+	call nextlinedown
+	ld a,(hl)
+	ld (de),a
+	call nextlinedown
+	inc hl
+	djnz ptclp
+	ret
+	;
+bigchar:
+	ld b,8
+lp2:	push bc
+	push de
+	ld b,(hl)
+	ld a,2
+lp1:	push af
+	ld a,1
+lp0:	rl b
+	rl a
+	rl a
+	jr nc,lp0
+	and a
+	ld c,a
+	rra
+	or c
+	ld (de),a
+	inc d
+	ld (de),a
+	inc e
+	dec d
+	pop af
+	dec a
+	jr nz,lp1
+	inc hl
+	pop de
+	inc d
+	call nextlinedown
+	pop bc
+	djnz lp2
+	ret
+	;
+verybigchar:
+	ld a,4
+vblp1:	push af
+	ld b,(hl)
+	inc hl
+	ld c,(hl)
+	inc hl
+	push de
+	ld a,4
+vblp:	push af
+	push de
+	xor a
+	rl b
+	jr nc,miss0
+	or $F0
+miss0:	rl b
+	jr nc,miss1
+	or $0F
+miss1:	call half_char
+	xor a
+	rl c
+	jr nc,miss2
+	or $F0
+miss2:	rl c
+	jr nc,miss3
+	or $0F
+miss3:	call half_char
+	pop de
+	inc e
+	pop af
+	dec a
+	jr nz,vblp
+	pop de
+	call nextrowdown
+	pop af
+	dec a
+	jr nz,vblp1
+	ret
+	;
+half_char
+	ld (de),a
+	inc d
+	ld (de),a
+	inc d
+	ld (de),a
+	inc d
+	ld (de),a
+	call nextlinedown
+	ret
+	;
+controlcode:
+	cpl			;makes table easier
+	cp maxcode
+	ret nc
+	add a,a
+	ld b,0
+	ld c,a
+	ld hl,controlcodetab
+	add hl,bc
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a
+	jp (hl)
+	;
+maxcode:	equ	(endcctab-controlcodetab)/2
+controlcodetab:
+	dw	donowt		;255	end string
+	dw	setprintroutine	;254,x
+	dw	printat		;253,x,y
+	dw	nextrow		;252 moves one row down plus margin
+	dw	setmargin	;251,x
+	dw	centrestring	;250
+	dw	setfontcolour	;249,c
+	dw	setbigcolour	;248,c,c,c,c
+	dw	setgiantcolour	;247,c
+	dw	cls		;246
+	dw	paperfill	;245,n
+	dw	border		;244
+	dw	waitkey		;243
+	dw	drawpage	;242
+	dw	anykeytileanim2	;241	two frame animated keypress x,y,tile
+	dw	attrbox		;240,y,x,w,h,attr
+	dw	tileprinter	;239,x,y,tile
+	dw	donowt		;238
+	dw	donowt		;237
+	dw	donowt		;236
+	dw	playsound	;235,n
+	dw	drawbox		;234,x,y,w,h
+	dw	delay		;233,numhalts
+	dw	cleartope2segs	;232
+	dw	donowt		;231
+	dw	ldigraphic	;230, y,x,w,h,attr(0,1,2),mono,dw graphic
+	dw	donowt		;229
+	dw	donowt		;228
+	dw	donowt		;227
+	dw	gamegraphs	;226
+	dw	donowt		;225
+	dw	clearbottomseg	;224
+endcctab:
+	;
+setprintroutine:
+	ld a,(ix+0)
+	inc ix
+	ld (printroutine),a
+	ret
+	;
+printat:
+	call setleft
+	ld hl,textx
+	ld a,(ix+0)
+	inc ix
+	ld (hl),a
+	inc hl
+	ld a,(ix+0)
+	inc ix
+	ld (hl),a
+	ret
+	;
+nextrow:		;equivalent to pressing ENTER
+	call setleft
+	ld hl,textx
+	ld a,(margin)
+	ld (hl),a
+	inc hl
+	inc (hl)
+	ld a,(hl)
+	cp 24
+	ret c
+	ld (hl),0
+	ret
+	;
+setleft:	;set half print to the left hand char (for new line etc)
+	ld a,240
+	ld (charhalf),a
+	ret
+	;
+setmargin:
+	ld a,(ix+0)
+	inc ix
+	ld (margin),a
+	ret
+	;
+centrestring4:		;special routine to centre string that is yet to be 5 chars longer
+	ld b,5
+	jr cent
+centrestring:		;finds length of string & centres
+	ld b,0		;count string length in b
+cent:	push ix		;if >31 does nowt
+cslp:	inc ix	
+	inc b
+	bit 5,b		;bit 5 set means string too long
+	jr nz,csout
+	ld a,(ix+0)
+	cp topchar		;keep going until the next control code
+	jr c,cslp
+	ld a,32		;b holds string length 0-31
+	sub b
+	srl a		;different divided by 2
+	ld (textx),a
+csout:	pop ix
+	ret
+	;
+setfontcolour:
+	ld a,(ix+0)
+	inc ix
+	ld (fontcolour),a
+	ret
+	;
+setbigcolour:		;same for tall, big, very big
+	ld hl,tallfontcolour
+	ld b,4
+stclp:	ld a,(ix+0)
+	inc ix
+	ld (hl),a
+	inc hl
+	djnz stclp
+	ret
+	;
+setgiantcolour:
+	ld a,(ix+0)
+	inc ix
+	ld (giantfontcolour),a
+	ret
+	;
+drawpage:
+	call cls
+	call colourwhitepage
+	call drawtopline
+	ld de,16384	;draw top left corner
+	ld hl,pag0
+	call printchar
+	ld de,16384+32
+	ld b,176
+dplp1:	ld a,128
+	ld (de),a
+	call nextlinedown
+	djnz dplp1
+	ld hl,pag1
+	call printchar	;bottom left
+	ld de,20480+224+1
+	ld b,30
+dplp2:	ld hl,pag2
+	push de
+	call printchar
+	pop de
+	inc e
+	djnz dplp2
+	ld hl,pag4
+	call printchar	
+	ld de,16384+31
+	ld hl,pag5
+	call printchar
+	ld b,177
+dplp3:	ld a,85
+	ld (de),a
+	call nextlinedown
+	djnz dplp3
+	call pageturnnoise
+	ret
+	;
+drawtopline:
+	ld hl,16384+30
+dplp0:	ld (hl),255	;draw top line
+	dec l
+	jr nz,dplp0
+	ret
+	;
+colourwhitepage:
+	ld hl,22527
+	ld a,23
+cwplp:	inc hl
+	ld d,h
+	ld e,l
+	inc de
+	ld (hl),120
+	ld bc,31
+	ldir
+	ld (hl),56
+	dec a
+	jp nz,cwplp
+	ld b,32
+cwplp1:	inc l
+	ld (hl),56
+	djnz cwplp1
+	ret
+	;
+
+pag0:	db	255, 128, 128, 128, 128, 128, 128, 128
+pag1:	db	128, 255, 224, 255, 248, 255, 254, 255
+pag2:	db	0, 255, 0, 255, 0, 255, 0, 255
+pag4:	db	85, 213, 21, 245, 5, 253, 1, 255
+pag5:	db	255, 127, 127, 95, 95, 87, 87, 85
+	;
+cls:	ld hl,16384
+	ld d,h
+	ld e,1
+	ld (hl),l
+	ld bc,6143
+	ldir
+	ret
+	;
+cleartope2segs:
+	ld hl,16384
+	ld d,h
+	ld e,1
+	ld (hl),l
+	ld bc,4095
+	ldir
+	ret
+	;
+clearbottomseg:
+	ld hl,20480
+	ld d,h
+	ld e,1
+	ld bc,2047
+	ld (hl),l
+	ldir
+	ret
+	;
+paperfill:
+	ld a,(ix+0)
+	inc ix
+paperfill0:	;fill ATTRS with colour A
+	ld hl,22528
+	ld d,h
+	ld e,1
+	ld bc,767
+	ld (hl),a
+	ldir
+	ret
+	;
+border:
+	ld a,(ix+0)
+	inc ix
+	out (254),a
+	ld (bordercolour),a
+	ret
+	;
+waitkey:
+	call nokey
+anykey:	ld a,223
+	in a,(254)
+	cpl
+	and 31
+	jr z,anykey
+	ld (pagebyte),a
+	ret
+	;
+YesOPkeys:	;Y for yes, OP for no and out
+	call nokey
+yoplp:	ld a,223
+	in a,(254)
+	cpl
+	and 31
+	jr z,yoplp
+	bit 4,a	;Y key
+	ret nz
+	and 3
+	jr z,yoplp
+	ld (pagebyte),a	;return Z and page direction
+	xor a
+	ret
+	;
+akinlp:	ld a,223
+	in a,(254)
+	cpl
+	and 3
+	ret
+	;
+anykeytileanim2:
+	call nokey
+anklp:	halt
+	ld e,(ix+0)
+	ld d,(ix+1)
+	call yx2cell
+	ld a,(akloopcounter)
+	rra
+	rra
+	rra
+	and 1
+	add a,(ix+2)
+	call gettile
+	call dotile
+	ld hl,akloopcounter
+	inc (hl)
+	ld a,223
+	in a,(254)
+	cpl
+	and 3
+	jr z,anklp
+	ld (pagebyte),a
+	inc ix
+	inc ix
+	inc ix
+	ret
+	;
+opcheck:
+	ld a,223
+	in a,(254)
+	cpl
+	and 3
+	ld (pagebyte),a
+	ret
+	;
+graphkeys:
+	ld a,251
+	in a,(254)
+	rra
+	jr nc,graphup
+	ld a,252
+	in a,(254)
+	rra
+	jr nc,graphdown
+	call opcheck
+	ret nz
+	jr graphkeys
+	;
+graphup:
+	ld a,(graphno)
+	inc a
+	cp maxgraph
+	jr nc,graphkeys
+	ld (graphno),a
+	ret
+	;
+graphdown:
+	ld a,(graphno)
+	or a
+	jr z,graphkeys
+	dec a
+	ld (graphno),a
+	ret
+	;
+akloopcounter:	db	0
+	;
+any23560:
+	call nokey
+	ld hl,23560
+	ld (hl),0
+aklp:	ld a,(hl)
+	or a
+	jr z,aklp
+	ret
+	;
+ixstore:	dw	0
+	;
+nokey:	xor a
+	in a,(254)
+	cpl
+	and 31
+	jr nz,nokey
+	ret
+	;
+nextlinedown:		;move DE down a pixel line
+	inc d
+	ld a,d
+	and 7
+	ret nz
+	ld a,e
+	add a,32
+	ld e,a
+	ret c
+	ld a,d
+	sub 8
+	ld d,a
+	ret
+	;
+nextrowdown:		;move DE down one line
+	ld a,e
+	add a,32
+	ld e,a
+	ret nc
+	ld a,d
+	add a,8
+	ld d,a
+	ret
+	;
+screen2att:
+	ld a,d
+	rra
+	rra
+	rra
+	and 3
+	or 88
+	ld d,a	
+donowt:	ret
+	;
+yx2attr:	;arrive b=y c=x, point HL at ATTRS
+	ld h,0
+	ld l,b
+	add hl,hl
+	add hl,hl
+	add hl,hl
+	add hl,hl
+	add hl,hl	;x32
+	ld a,l
+	or c
+	ld l,a
+	ld a,h
+	or 88
+	ld h,a
+	ret
+	;
+yx2cell:	;arrive with d=y, e=x
+	ld a,d
+	rrca
+	rrca
+	rrca
+	and 224
+	or e
+	ld e,a
+	ld a,d
+	and 24
+	or 64
+	ld d,a
+	ret
+	;
+yx2pix:		;arrive with B=y 0-192, C=x 0-255, return with DE at corresponding screen
+	ld a,b
+	rra
+	rra
+	rra
+	and 24
+	or 64
+	ld d,a
+	ld a,b
+	and 7
+	or d
+	ld d,a
+	ld a,b
+	rla
+	rla
+	and 224
+	ld e,a
+	ld a,c
+	rra
+	rra
+	rra
+	and 31
+	or e
+	ld e,a
+	ret
+	;
+halffont:
+db 0, 0, 0, 0, 0, 0, 0, 0
+db 0, 0, 68, 68, 68, 0, 68, 0
+db 0, 0, 170, 170, 0, 0, 0, 0
+db 0, 85, 255, 85, 85, 255, 85, 0
+db 0, 68, 238, 204, 238, 102, 238, 68
+db 0, 0, 170, 136, 68, 34, 170, 0
+db 0, 0, 68, 170, 68, 170, 119, 0
+db 0, 0, 68, 136, 0, 0, 0, 0
+db 0, 0, 34, 68, 68, 68, 34, 0
+db 0, 0, 68, 34, 34, 34, 68, 0
+db 0, 0, 170, 68, 238, 68, 170, 0
+db 0, 0, 0, 68, 238, 68, 0, 0
+db 0, 0, 0, 0, 0, 0, 34, 68
+db 0, 0, 0, 0, 238, 0, 0, 0
+db 0, 0, 0, 0, 0, 0, 68, 0
+db 0, 0, 34, 68, 68, 68, 136, 0
+db 0, 0, 238, 170, 170, 170, 238, 0
+db 0, 0, 102, 34, 34, 34, 34, 0
+db 0, 0, 238, 34, 238, 136, 238, 0
+db 0, 0, 238, 34, 102, 34, 238, 0
+db 0, 0, 136, 136, 170, 238, 34, 0
+db 0, 0, 238, 136, 238, 34, 238, 0
+db 0, 0, 136, 136, 238, 170, 238, 0
+db 0, 0, 238, 34, 34, 68, 68, 0
+db 0, 0, 238, 170, 238, 170, 238, 0
+db 0, 0, 238, 170, 238, 34, 34, 0
+db 0, 0, 0, 68, 0, 68, 0, 0
+db 0, 0, 0, 0, 34, 0, 34, 68
+db 0, 0, 34, 68, 136, 68, 34, 0
+db 0, 0, 0, 238, 0, 238, 0, 0
+db 0, 0, 136, 68, 34, 68, 136, 0
+db 0, 238, 170, 34, 102, 68, 0, 68
+db 0, 102, 153, 187, 187, 136, 119, 0
+db 0, 0, 238, 170, 238, 170, 170, 0
+db 0, 0, 238, 170, 204, 170, 238, 0
+db 0, 0, 238, 136, 136, 136, 238, 0
+db 0, 0, 204, 170, 170, 170, 204, 0
+db 0, 0, 238, 136, 204, 136, 238, 0
+db 0, 0, 238, 136, 204, 136, 136, 0
+db 0, 0, 238, 136, 170, 170, 238, 0
+db 0, 0, 170, 170, 238, 170, 170, 0
+db 0, 0, 238, 68, 68, 68, 238, 0
+db 0, 0, 34, 34, 34, 170, 238, 0
+db 0, 0, 170, 170, 204, 170, 170, 0
+db 0, 0, 136, 136, 136, 136, 238, 0
+db 0, 0, 204, 238, 238, 170, 170, 0
+db 0, 0, 238, 170, 170, 170, 170, 0
+db 0, 0, 238, 170, 170, 170, 238, 0
+db 0, 0, 238, 170, 238, 136, 136, 0
+db 0, 0, 238, 170, 170, 170, 238, 17
+db 0, 0, 238, 170, 204, 170, 170, 0
+db 0, 0, 238, 136, 238, 34, 238, 0
+db 0, 0, 238, 68, 68, 68, 68, 0
+db 0, 0, 170, 170, 170, 170, 238, 0
+db 0, 0, 170, 170, 170, 170, 68, 0
+db 0, 0, 170, 170, 238, 238, 204, 0
+db 0, 0, 170, 170, 68, 170, 170, 0
+db 0, 0, 170, 170, 238, 68, 68, 0
+db 0, 0, 238, 34, 68, 136, 238, 0
+db 0, 0, 102, 68, 68, 68, 102, 0
+db 0, 0, 136, 136, 68, 34, 34, 0
+db 0, 0, 102, 34, 34, 34, 102, 0
+db 0, 0, 85, 170, 0, 0, 0, 0
+db 0, 0, 0, 0, 0, 0, 0, 255		;Z
+db 0, 0, 102, 68, 136, 68, 102, 0	;after lower case alphabet
+db 0, 0, 68, 68, 68, 68, 68, 0
+db 0, 0, 204, 68, 34, 68, 204, 0
+db 0, 238, 136, 68, 68, 136, 238, 0
+db 0, 255, 0, 102, 68, 102, 0, 255
+;
+font:	equ	15616
+	;
+extrachars:
+
+	;
+tiles:
+
+	;
+endtiles:
+
+;
+	;
+pageturnnoise:	;by Hikaru
+	ld a,(bordercolour)
+	ld (ppok+1),a
+	ld hl,0
+	ld bc,2
+	ld d,24
+	call ptlp
+	ld c,24
+	ld d,8
+ptlp:
+	ld a,(hl)
+	inc hl
+	cp c
+	sbc a,a
+	and 24
+ppok:	or 7
+	out (254),a
+	djnz ptlp
+	dec d
+	jr nz,ptlp
+	ret
+	;
+drawbox:
+	ld e,(ix+0)
+	ld d,(ix+1)
+	call yx2cell
+	ld b,(ix+2)	;width
+	push de
+	call drawlinehoriz
+	dec e
+	ld b,(ix+3)	;height
+	ld c,1
+	call drawlinevertical
+	pop de
+	ld b,(ix+3)
+	ld c,128
+	call drawlinevertical
+	ld b,(ix+2)
+	call drawlinehoriz
+	ld de,4
+	add ix,de
+	ret
+	;
+drawlinevertical:	
+	ld a,(de)
+	or c
+	ld (de),a
+	call nextlinedown
+	djnz drawlinevertical
+	ret
+	;
+drawlinehoriz:	;arrive DE at screen, B holding width
+	ld a,255
+drblp:	ld (de),a
+	inc e
+	djnz drblp
+	ret	
+	;
+attrbox:
+	ld b,(ix+0)	;y
+	ld c,(ix+1)	;x
+	call yx2attr	;HL at attrs
+	ld b,(ix+2)	;char width
+	ld c,(ix+3)	;char height
+	ld a,(ix+4)	;attr
+	call atbox
+	ld de,5
+	add ix,de
+	ret
+	;
+atbox:		;HL at attrs, B width, C height, A attr
+	ld (atbpok+1),a	;means routine can be called outside of string
+	ld de,32	;distance between rows
+atblp0:	push bc
+	push hl
+	ld a,h
+	cp 91
+	jr nc,atbm
+atbpok:	ld a,0		;attr
+atblp:	ld (hl),a
+	inc l
+	djnz atblp
+atbm:	pop hl
+	pop bc
+	add hl,de
+	dec c
+	jr nz,atblp0
+	ret
+	;
+ldigraphic:
+	call ldpix
+	ld de,8
+	add ix,de
+	ret
+	;
+ldpix:
+	ld b,(ix+0)	;y
+	ld c,(ix+1)	;x
+	ld (lastLDI),bc	;used as a reference when adding bits later
+	call yx2pix	;point DE at cors
+	ld b,(ix+2)	;byte width 0-31
+	ld c,(ix+3)	;pix height 1,192
+	ld l,(ix+6)
+	ld h,(ix+7)	;HL at graphic
+	push bc
+	push de		;save top left
+ldlp0:	push bc
+	push de
+	ld a,d
+	cp 88
+	jr nc,ldm
+	ld a,b
+ldlp:	ldi
+	dec a
+	jr nz,ldlp
+ldm:	pop de
+	pop bc
+	call nextlinedown
+	dec c
+	jr nz,ldlp0
+	pop de		;back to top left
+	call screen2att
+	pop bc		;get back width/height counters
+	ld a,c		;pix height needs to be char height
+	push af
+	rra
+	rra		;div by 8
+	rra
+	and 31
+	ld c,a
+	pop af
+	and 7
+	jr z,ldc
+	inc c
+ldc:	ld a,(ix+4)	;attrswitch
+	or a
+	ret z
+	cp 1
+	jr z,ldigratt
+ldimono:		;monochrome attr box, b wide, c high
+	ex de,hl	;HL at attrs
+	ld de,32
+lmlp0:	push bc
+	push hl
+	ld a,h
+	cp 91
+	jr nc,lam
+	ld a,(ix+5)	;colour
+lmlp:	ld (hl),a
+	inc l
+	djnz lmlp
+lam:	pop hl
+	pop bc
+	add hl,de
+	dec c
+	jr nz,lmlp0
+	ret
+	;
+lastLDI:	dw	0	;YX address of top left of last LDI
+	;
+ldigratt:			;HL at colours, DE at attributes, LDI width B, height C
+	push bc
+	push de
+	ld a,b
+lalp:	ldi
+	dec a
+	jr nz,lalp
+	pop de
+	call attrrowdown	
+	pop bc
+	dec c
+	jr nz,ldigratt
+	ret
+	;
+attrrowdown:		;move DE down one attrline
+	ld a,e
+	add a,32
+	ld e,a
+	ret nc
+	inc d
+	ret
+	;
+nexthlup:
+	ld a,h
+	dec h
+	and 7
+	ret nz
+	ld a,l
+	sub 32
+	ld l,a
+	ret c
+	ld a,h
+	add a,8
+	ld h,a
+	ret
+	;
+codeend:

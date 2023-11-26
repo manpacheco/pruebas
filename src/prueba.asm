@@ -1,6 +1,8 @@
-org $6000
-include "data.asm"
+PROGRAM_ADDRESS             EQU 24576 ; 0x6000
+
+org PROGRAM_ADDRESS
 include "print.asm"
+include "data.asm"
 Main:
 
 LD D, 5                 ; Y position

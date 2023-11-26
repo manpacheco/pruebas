@@ -10,7 +10,12 @@ CR                      EQU 0x0C
 SPACE                   EQU 32
 
 ROM_CHARSET             EQU 15360 ; 0x3C00
+RAM_CHARSET             EQU PROGRAM_ADDRESS
+SELECTED_CHARSET        EQU RAM_CHARSET-(32*8)
 
+
+; include "carton_bold.asm"
+include "half_font.asm"
 ; -----------------------------------------------------------------------------
 ; Nombre de la función: Get_Char_Address
 ; -----------------------------------------------------------------------------
@@ -56,7 +61,7 @@ RET             ; Devuelve la dirección del carácter (X,Y) de pantalla traduci
 ; Fuente original : : http://www.breakintoprogram.co.uk/hardware/computers/zx-spectrum/assembly-language/z80-tutorials/print-in-assembly-language/2
 ; -----------------------------------------------------------------------------
 Print_Char:             
-LD HL, ROM_CHARSET      ; Se carga en HL la dirección del juego de caracteres de la ROM
+LD HL, SELECTED_CHARSET ; Se carga en HL la dirección del juego de caracteres de la ROM
 LD B,0                  ; BC es el código del caracter, la parte alta siempre será 0
 LD C, A                 ; Se copia a C el caracter de entrada
 SLA C                   ; Se multiplica por 2 haciendo shift a la izquierda y llevando a carry el bit más significativo
