@@ -1,4 +1,5 @@
 	; Carton Bold font by DamienG https://damieng.com
+	carton_bold_font:
 	defb &00,&00,&00,&00,&00,&00,&00,&00 ;  
 	defb &18,&18,&18,&18,&18,&00,&18,&00 ; !
 	defb &6c,&6c,&00,&00,&00,&00,&00,&00 ; "
