@@ -169,12 +169,34 @@ JR Print_String                 ; Salta al principio en bucle
 ;   D = coordenada Y del carácter donde se imprimira la cadena (0-23)
 ;   E = coordenada X del carácter donde se imprimira la cadena (0-31)
 ; Registros de salida: Ninguno
+; Registros sobreescritos: AF, DE, HL, IX, IY
+; Funciones requeridas: Print_String_4px_con_borde
+; Funciones relacionadas: Print_String
+; Fuente original : Adaptación de Serranito online basada en Print_String y en código de Dave Hughes
+; -----------------------------------------------------------------------------
+Print_String_4px:
+ld IXL,24
+ld IXH,29
+call Print_String_4px_con_borde
+ret
+
+; -----------------------------------------------------------------------------
+; Nombre de la función: Print_String_4px_con_borde
+; -----------------------------------------------------------------------------
+; Descripción: Imprime una cadena de caracteres de ancho 4 pixeles en ZX Spectrum.
+; Registros de entrada:
+;   HL= apunta a la cadena a imprimir
+;   D = coordenada Y del carácter donde se imprimira la cadena (0-23)
+;   E = coordenada X del carácter donde se imprimira la cadena (0-31)
+;   IXL = límite inferior en la coordenada X
+;   IXH = límite inferior en la coordenada X
+; Registros de salida: Ninguno
 ; Registros sobreescritos: AF, DE, HL
 ; Funciones requeridas: Print_Char, Print_Char_Derecho
 ; Funciones relacionadas: Print_String
 ; Fuente original : Adaptación de Serranito online basada en Print_String y en código de Dave Hughes
 ; -----------------------------------------------------------------------------
-Print_String_4px:           
+Print_String_4px_con_borde:           
 LD A, (HL)                      ; Carga el primer caracter de la cadena apuntada por HL en el registro A
 CP 0                            ; compara con 0
 RET Z                           ; Si es 0 sale de la funcíon
@@ -208,6 +230,27 @@ POP DE                          ; Restaura las coordenadas para imprimir la cade
 POP AF                          ; Restaura AF con el caracter que se tenía que imprimir
 CP 0                            ; Si el caracter era 0
 RET Z                           ; Se sale de la función
+
+
+LD A, E                         ; Copia la coordenada X al registro A para hacer comparación
+CP IXH
+JR NZ, Print_String_4px_J4      
+LD E, IXL
+DEC E
+INC D
+
+PUSH HL
+POP IY
+LD A, (IY+1)
+CP SPACE                        ; Si se va a saltar de línea y el siguiente es un espacio
+JR NZ, Print_String_4px_J4
+
+
+
+INC HL                          ; salta el siguiente carácter
+Print_String_4px_J4:
 INC E                           ; Incrementa el registro E que tiene la coordenada horizontal 
 INC HL                          ; Incrementa el registro índice de la cadena
 JR Print_String_4px             ; Salta al principio en bucle
+
+; // TO DO: probar con un límite derecho más pequeño y luego seguir probando con el límite izquierdo. Y luego con texto largo para n líneas entre los dos límites
