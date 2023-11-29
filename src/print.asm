@@ -233,24 +233,20 @@ RET Z                           ; Se sale de la función
 
 
 LD A, E                         ; Copia la coordenada X al registro A para hacer comparación
-CP IXH
-JR NZ, Print_String_4px_J4      
-LD E, IXL
-DEC E
-INC D
+CP IXH                          ; Compara la coordenada X actual con el límite máximo
+JR NZ, Print_String_4px_J4      ; Si no se ha llegado, sigue igual
+LD E, IXL                       ; En caso de que estemos justo en el límite, incrementa hace algo como un retorno de carro
+DEC E                           ; Le resta uno para compensar el INC que va después
+INC D                           ; Salta a la siguiente fila
 
-PUSH HL
-POP IY
-LD A, (IY+1)
-CP SPACE                        ; Si se va a saltar de línea y el siguiente es un espacio
-JR NZ, Print_String_4px_J4
+PUSH HL                         ; Pasa HL a la pila para cargarlo en IY
+POP IY                          ; Recupera IY de la pila con lo que se subió (que es HL)
+LD A, (IY+1)                    ; Mira lo que viene después de la posición actual
+CP SPACE                        ; Compara con el espacio a ve si es
+JR NZ, Print_String_4px_J4      ; Si no es el espacio, salta y no hagas el ajuste
 
-
-
-INC HL                          ; salta el siguiente carácter
+INC HL                          ; el ajuste es que salta el siguiente carácter para ignorar el espacio
 Print_String_4px_J4:
 INC E                           ; Incrementa el registro E que tiene la coordenada horizontal 
 INC HL                          ; Incrementa el registro índice de la cadena
 JR Print_String_4px             ; Salta al principio en bucle
-
-; // TO DO: probar con un límite derecho más pequeño y luego seguir probando con el límite izquierdo. Y luego con texto largo para n líneas entre los dos límites
