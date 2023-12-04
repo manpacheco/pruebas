@@ -8,6 +8,8 @@ AT                      EQU 0x16
 TAB                     EQU 0x17
 CR                      EQU 0x0C
 SPACE                   EQU 32
+LIVE_ATTRIBUTES_ADDRESS EQU 22528
+CHAR_RESOLUTION_WIDTH   EQU 32
 
 ROM_CHARSET             EQU 15360 ; 0x3C00
 RAM_CHARSET             EQU PROGRAM_ADDRESS
@@ -24,7 +26,7 @@ Carton_bold_address: DW CONSTANT_CARTON_BOLD_FONT
 ; -----------------------------------------------------------------------------
 ; Nombre de la función: Get_Char_Address
 ; -----------------------------------------------------------------------------
-; Descripción: Calcula la posición de memoria a partir de las coordenadas (Y,X) de un carácter en la cuadrícula de caracteres de la pantalla
+; Descripción: Calcula la posición de memoria en la zona del mapa de bits a partir de las coordenadas (Y,X) de un carácter en la cuadrícula de caracteres de la pantalla
 ; Registros de entrada: D, E
 ;   D = coordenada Y del carácter (0-23)
 ;   E = coordenada X del carácter (0-31)
@@ -49,6 +51,35 @@ AND %00011000                   ; se queda con los dos bits más significativos 
 OR %01000000                    ; le añade el prefijo 010 para seguir el formato 010T TSSS LLLC CCCC
 LD D,A                          ; el resultado lo pasa al registro D
 RET                             ; Devuelve la dirección del carácter (X,Y) de pantalla traducida a dirección de memoria en el registro DE
+
+; -----------------------------------------------------------------------------
+; Nombre de la función: Get_Attribute_Address
+; -----------------------------------------------------------------------------
+; Descripción:  Calcula la posición de memoria en la zona de atributos a partir de las coordenadas (Y,X) de un carácter en la cuadrícula de caracteres de la pantalla
+; Registros de entrada: B, E
+;   B = coordenada Y del carácter (0-23)
+;   E = coordenada X del carácter (0-31)
+; Registros de salida: HL
+; Registros sobreescritos: A,B,C,D,E,H,L
+; Funciones requeridas: Ninguna
+; Funciones relacionadas: Ninguna
+; Fuente original : Adaptación de Serranito Online
+; -----------------------------------------------------------------------------
+
+Get_Attribute_Address: 
+LD HL, LIVE_ATTRIBUTES_ADDRESS  ; Primero carga en el registro HL la dirección base de los atributos en memoria
+LD D,0                          ; Pone 0 en la parte alta de DE, ya que sería inconsistente y así se evita ensuciar el resultado
+ADD HL, DE                      ; Añade el offset horizontal en E a la dirección ya calculada
+LD E, CHAR_RESOLUTION_WIDTH     ; Ahora se prepara para añadir offset por la posición vertical
+
+LD A, B                         ; Carga el valor de B en A
+OR A                            ; Realiza una operación OR con el registro A. Si A es 0, se establecerá el flag de cero (Z)
+RET Z                           ; Retorna si el flag de cero (Z) está establecido
+
+Get_Attribute_Address_J1:
+ADD  HL, DE                     ; Añade una fila
+DJNZ Get_Attribute_Address_J1   ; Mientras no hayamos procesado toda la cantidad de filas, continúa sumando 32
+RET
 
 ; -----------------------------------------------------------------------------
 ; Nombre de la función: Print_Char
@@ -99,7 +130,7 @@ RET
 ; Registros sobreescritos: A, B, C, D, E, H, L
 ; Funciones requeridas: Get_Char_Address
 ; Funciones relacionadas: Get_Char_Address, Print_Char
-; Fuente original : adaptación de Serranito Online
+; Fuente original : Adaptación de Serranito Online
 ; Observaciones : Basado en Print_Char
 ; -----------------------------------------------------------------------------
 Print_Char_Derecho:             
@@ -174,11 +205,13 @@ JR Print_String                 ; Salta al principio en bucle
 ; Funciones relacionadas: Print_String
 ; Fuente original : Adaptación de Serranito online basada en Print_String y en código de Dave Hughes
 ; -----------------------------------------------------------------------------
-Print_String_4px:
-ld IXL,24
-ld IXH,29
-call Print_String_4px_con_borde
-ret
+
+; ld a,0
+; Print_String_4px:
+; ld IXL,21
+; ld IXH,29
+; call Print_String_4px_con_borde
+; ret
 
 ; -----------------------------------------------------------------------------
 ; Nombre de la función: Print_String_4px_con_borde
@@ -189,64 +222,64 @@ ret
 ;   D = coordenada Y del carácter donde se imprimira la cadena (0-23)
 ;   E = coordenada X del carácter donde se imprimira la cadena (0-31)
 ;   IXL = límite inferior en la coordenada X
-;   IXH = límite inferior en la coordenada X
+;   IXH = límite máximo en la coordenada X
 ; Registros de salida: Ninguno
 ; Registros sobreescritos: AF, DE, HL
 ; Funciones requeridas: Print_Char, Print_Char_Derecho
 ; Funciones relacionadas: Print_String
 ; Fuente original : Adaptación de Serranito online basada en Print_String y en código de Dave Hughes
-; -----------------------------------------------------------------------------
-Print_String_4px_con_borde:           
-LD A, (HL)                      ; Carga el primer caracter de la cadena apuntada por HL en el registro A
-CP 0                            ; compara con 0
-RET Z                           ; Si es 0 sale de la funcíon
-INC HL                          ; Incrementa el registro índice de la cadena
-CP SPACE                        ; Compara con el espacio (32)
-JR C, Print_String_4px          ; Si es anterior al 32, es un carácter de control (no se imprimirá nada)
-PUSH DE                         ; Preserva DE en la pila
-PUSH HL                         ; Preserva HL en la pila
-LD HL, (Half_width_address)     ; Se carga en HL la dirección del juego de caracteres de la ROM
-CALL Print_Char                 ; Llama a la rutina que imprime un caracter
-POP HL                          ; Restaura HL que contiene el índice a la cadena
-POP DE                          ; Restaura las coordenadas para imprimir la cadena
+; ------------------------------        -----------------------------------------------
+Print_String_4px_con_borde:                   
+LD A, (HL)                              ; Carga el primer caracter de la cadena apuntada por HL en el registro A
+CP 0                                    ; compara con 0
+RET Z                                   ; Si es 0 sale de la funcíon
+INC HL                                  ; Incrementa el registro índice de la cadena
+CP SPACE                                ; Compara con el espacio (32)
+JR C, Print_String_4px_con_borde        ; Si es anterior al 32, es un carácter de control (no se imprimirá nada)
+PUSH DE                                 ; Preserva DE en la pila
+PUSH HL                                 ; Preserva HL en la pila
+LD HL, (Half_width_address)             ; Se carga en HL la dirección del juego de caracteres de la ROM
+CALL Print_Char                         ; Llama a la rutina que imprime un caracter
+POP HL                                  ; Restaura HL que contiene el índice a la cadena
+POP DE                                  ; Restaura las coordenadas para imprimir la cadena
 
-LD A, (HL)                      ; Carga el siguiente caracter de la cadena apuntada por HL en el registro A
-PUSH AF                         ; Preserva AF en la pila
-CP 0                            ; Nos ha pillado el fin de cadena en mitad de la impresión?
-JR Z, Print_String_4px_J1       ; Si es así, ejecuta lo que hay dentro del salto J1
+LD A, (HL)                              ; Carga el siguiente caracter de la cadena apuntada por HL en el registro A
+PUSH AF                                 ; Preserva AF en la pila
+CP 0                                    ; Nos ha pillado el fin de cadena en mitad de la impresión?
+JR Z, Print_String_4px_J1               ; Si es así, ejecuta lo que hay dentro del salto J1
 
-CP SPACE                        ; Compara con el espacio (32)
-JR C, Print_String_4px          ; Si es anterior al 32, es un carácter de control (no se imprimirá nada)
-JR Print_String_4px_J2          ; En las ejecuciones normales va al salto J2
+CP SPACE                                ; Compara con el espacio (32)
+JR C, Print_String_4px_con_borde        ; Si es anterior al 32, es un carácter de control (no se imprimirá nada)
+JR Print_String_4px_J2                  ; En las ejecuciones normales va al salto J2
 
-Print_String_4px_J1:
-LD A, SPACE                     ; Si hace falta imprime como despedida un espacio en blanco
-Print_String_4px_J2:
-PUSH DE                         ; Preserva DE en la pila
-PUSH HL                         ; Preserva HL en la pila
-CALL Print_Char_Derecho     
-POP HL                          ; Restaura HL que contiene el índice a la cadena
-POP DE                          ; Restaura las coordenadas para imprimir la cadena
-POP AF                          ; Restaura AF con el caracter que se tenía que imprimir
-CP 0                            ; Si el caracter era 0
-RET Z                           ; Se sale de la función
+Print_String_4px_J1:        
+LD A, SPACE                             ; Si hace falta imprime como despedida un espacio en blanco
+Print_String_4px_J2:        
+PUSH DE                                 ; Preserva DE en la pila
+PUSH HL                                 ; Preserva HL en la pila
+CALL Print_Char_Derecho             
+POP HL                                  ; Restaura HL que contiene el índice a la cadena
+POP DE                                  ; Restaura las coordenadas para imprimir la cadena
+POP AF                                  ; Restaura AF con el caracter que se tenía que imprimir
+CP 0                                    ; Si el caracter era 0
+RET Z                                   ; Se sale de la función
 
 
-LD A, E                         ; Copia la coordenada X al registro A para hacer comparación
-CP IXH                          ; Compara la coordenada X actual con el límite máximo
-JR NZ, Print_String_4px_J4      ; Si no se ha llegado, sigue igual
-LD E, IXL                       ; En caso de que estemos justo en el límite, incrementa hace algo como un retorno de carro
-DEC E                           ; Le resta uno para compensar el INC que va después
-INC D                           ; Salta a la siguiente fila
+LD A, E                                 ; Copia la coordenada X al registro A para hacer comparación
+CP IXH                                  ; Compara la coordenada X actual con el límite máximo
+JR NZ, Print_String_4px_J4              ; Si no se ha llegado, sigue igual
+LD E, IXL                               ; En caso de que estemos justo en el límite, incrementa hace algo como un retorno de carro
+DEC E                                   ; Le resta uno para compensar el INC que va después
+INC D                                   ; Salta a la siguiente fila
 
-PUSH HL                         ; Pasa HL a la pila para cargarlo en IY
-POP IY                          ; Recupera IY de la pila con lo que se subió (que es HL)
-LD A, (IY+1)                    ; Mira lo que viene después de la posición actual
-CP SPACE                        ; Compara con el espacio a ve si es
-JR NZ, Print_String_4px_J4      ; Si no es el espacio, salta y no hagas el ajuste
+PUSH HL                                 ; Pasa HL a la pila para cargarlo en IY
+POP IY                                  ; Recupera IY de la pila con lo que se subió (que es HL)
+LD A, (IY+1)                            ; Mira lo que viene después de la posición actual
+CP SPACE                                ; Compara con el espacio a ve si es
+JR NZ, Print_String_4px_J4              ; Si no es el espacio, salta y no hagas el ajuste
 
-INC HL                          ; el ajuste es que salta el siguiente carácter para ignorar el espacio
-Print_String_4px_J4:
-INC E                           ; Incrementa el registro E que tiene la coordenada horizontal 
-INC HL                          ; Incrementa el registro índice de la cadena
-JR Print_String_4px             ; Salta al principio en bucle
+INC HL                                  ; el ajuste es que salta el siguiente carácter para ignorar el espacio
+Print_String_4px_J4:        
+INC E                                   ; Incrementa el registro E que tiene la coordenada horizontal 
+INC HL                                  ; Incrementa el registro índice de la cadena
+JR Print_String_4px_con_borde           ; Salta al principio en bucle
