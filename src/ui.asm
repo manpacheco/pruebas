@@ -17,6 +17,8 @@
 Dibuja_recuadro:
 PUSH DE                             ; Sube DE a la pila
 POP IY                              ; Pasa DE que estaba en la pila a IY
+
+
 Dibuja_recuadro_J1:
 LD A,33                             ; Carga en A el carácter de relleno, en este caso el espacio
 LD HL, (Carton_bold_address)        ; Carga en HL la dirección de la fuente
@@ -26,16 +28,15 @@ CALL Print_Char                     ; Imprimir el carácter
 POP BC                              ; Restaura BC
 POP DE                              ; Restaura DE
 
-
 ;   B = coordenada Y del carácter (0-23)
 ;   E = coordenada X del carácter (0-31)
-PUSH BC
-PUSH DE
-LD B, D
-CALL Get_Attribute_Address
-POP DE
-POP BC
-LD (HL), 7
+PUSH BC                             ; Se preserva BC
+PUSH DE                             ; Se preserva DE
+LD B, D                             ; Carga en B la coordenada Y
+CALL Get_Attribute_Address          ; Calcula la posición de memoria del atributo a modificar. La coordenada X ya va en el registro E
+POP DE                              ; Restaura el registro DE
+POP BC                              ; Restaura el registro BC
+LD (HL), 7                          ; Le asigna el atributo a esa coordenada
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; TO DO: Documentar y revisar documentación anterior
