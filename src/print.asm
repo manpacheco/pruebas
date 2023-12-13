@@ -14,8 +14,8 @@ CHAR_RESOLUTION_WIDTH   EQU 32
 ROM_CHARSET             EQU 15360 ; 0x3C00
 RAM_CHARSET             EQU PROGRAM_ADDRESS
 
-include "carton_bold_font.asm"
-include "half_width_font.asm"
+include "fonts/carton_bold_font.asm"
+include "fonts/half_width_font.asm"
 CONSTANT_HALF_WIDTH_FONT EQU half_width_font-(32*8)
 CONSTANT_CARTON_BOLD_FONT EQU carton_bold_font-(32*8)
 Half_width_address: DW CONSTANT_HALF_WIDTH_FONT
